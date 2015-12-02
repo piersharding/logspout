@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"golang.org/x/net/websocket"
 	"log"
+	"path"
 	"net/http"
 	"os"
 	"strconv"
@@ -57,7 +58,7 @@ func LogStreamer() http.Handler {
 			closer = closerBi
 		} else {
 			debug("http: logs streamer connected [http]")
-			defer httpStreamer(w, req, logstream, route.MultiContainer())
+			defer httpStreamer(w, req, logstream, route.MultiContainer(), route.FilterName)
 			closer = w.(http.CloseNotifier).CloseNotify()
 		}
 		route.OverrideCloser(closer)
@@ -112,7 +113,7 @@ func websocketStreamer(w http.ResponseWriter, req *http.Request, logstream chan 
 	}).ServeHTTP(w, req)
 }
 
-func httpStreamer(w http.ResponseWriter, req *http.Request, logstream chan *router.Message, multi bool) {
+func httpStreamer(w http.ResponseWriter, req *http.Request, logstream chan *router.Message, multi bool, rFilterName string) {
 	var colors Colorizer
 	var usecolor, usejson bool
 	nameWidth := 16
@@ -135,6 +136,12 @@ func httpStreamer(w http.ResponseWriter, req *http.Request, logstream chan *rout
 		} else {
 			if multi {
 				name := normalName(logline.Container.Name)
+				if rFilterName != "" {
+				    match, err := path.Match(rFilterName, name)
+				    if err != nil || (logline.Container.Name != "" && !match) {
+				        continue
+				    }
+				}
 				if len(name) > nameWidth {
 					nameWidth = len(name)
 				}
