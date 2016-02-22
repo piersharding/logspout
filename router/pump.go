@@ -53,6 +53,16 @@ func normalID(id string) string {
 	return id
 }
 
+func includeContainer(container *docker.Container) bool {
+    for _, kv := range container.Config.Env {
+        kvp := strings.SplitN(kv, "=", 2)
+        if len(kvp) == 2 && kvp[0] == "LOGSPOUT" && strings.ToLower(kvp[1]) != "" {
+            return true
+        }
+    }
+    return false
+}
+
 func ignoreContainer(container *docker.Container) bool {
 	for _, kv := range container.Config.Env {
 		kvp := strings.SplitN(kv, "=", 2)
@@ -125,6 +135,13 @@ func (p *LogsPump) pumpLogs(event *docker.APIEvents, backlog bool) {
 		debug("pump:", id, "ignored: tty enabled")
 		return
 	}
+    if os.Getenv("INCLUDE_ONLY") != "" {
+        if includeContainer(container) {
+            debug("pump:", id, " / ", normalName(container.Name), " included: LOGSPOUT set")
+        } else {
+            return
+        }
+    }
 	if ignoreContainer(container) {
 		debug("pump:", id, "ignored: environ ignore")
 		return
